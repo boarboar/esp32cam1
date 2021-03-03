@@ -1,4 +1,5 @@
 /*
+  Based on - 
   Rui Santos
   Complete project details at https://RandomNerdTutorials.com/esp32-cam-post-image-photo-server/
   
@@ -25,6 +26,8 @@ String serverPath = "/upload";     // The default serverPath should be upload.ph
 
 const int serverPort = 51062;
 
+const int CamID = 1;
+
 WiFiClient client;
 
 // CAMERA_MODEL_AI_THINKER
@@ -46,13 +49,19 @@ WiFiClient client;
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
+#define LED_PIN           33
+#define FLASH_PIN         4
+
 const int timerInterval = 30000;    // time between each HTTP POST image
 unsigned long previousMillis = 0;   // last time image was sent
 
-String sendPhoto();
+bool sendPhoto();
 
 void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
+
+  pinMode(LED_PIN, OUTPUT);
+  
   Serial.begin(115200);
 
   WiFi.mode(WIFI_STA);
@@ -61,9 +70,12 @@ void setup() {
   Serial.println(ssid);
   WiFi.begin(ssid, password);  
   while (WiFi.status() != WL_CONNECTED) {
+    digitalWrite(LED_PIN, LOW);
     Serial.print(".");
     delay(500);
+    digitalWrite(LED_PIN, HIGH);
   }
+
   Serial.println();
   Serial.print("ESP32-CAM IP Address: ");
   Serial.println(WiFi.localIP());
@@ -92,7 +104,8 @@ void setup() {
 
   // init with high specs to pre-allocate larger buffers
   if(psramFound()){
-    config.frame_size = FRAMESIZE_SVGA;
+    //config.frame_size = FRAMESIZE_SVGA;
+    config.frame_size = FRAMESIZE_VGA;
     config.jpeg_quality = 10;  //0-63 lower number means higher quality
     config.fb_count = 2;
   } else {
@@ -109,20 +122,35 @@ void setup() {
     ESP.restart();
   }
 
+ sensor_t * s = esp_camera_sensor_get();
+
+ //if (NULL != s && s->id.PID == OV3660_PID) {
+ if (NULL != s) {
+    Serial.println("Setting camera params");
+    //s->set_vflip(s, 1);//flip it back
+    s->set_brightness(s, 1);//up the blightness just a bit
+    s->set_saturation(s, -1);//lower the saturation
+    s->set_contrast(s, 1);
+    s->set_awb_gain(s, 0);  
+    s->set_lenc(s, 0);
+  }
+
   sendPhoto(); 
 }
 
 void loop() {
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= timerInterval) {
+    digitalWrite(LED_PIN, LOW);
     sendPhoto();
+    digitalWrite(LED_PIN, HIGH);
     previousMillis = currentMillis;
   }
 }
 
-String sendPhoto() {
-  String getAll;
-  String getBody;
+bool sendPhoto() {
+  //String getAll;
+  //String getBody;
 
   camera_fb_t * fb = NULL;
   fb = esp_camera_fb_get();
@@ -130,13 +158,16 @@ String sendPhoto() {
     Serial.println("Camera capture failed");
     delay(1000);
     ESP.restart();
+    return false;
   }
   
   Serial.println("Connecting to server: " + serverName);
 
   if (client.connect(serverName.c_str(), serverPort)) {
     Serial.println("Connection successful!");    
-    String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"esp32-cam.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
+    String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"CAM-";
+    head += String(CamID);
+    head += ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
     String tail = "\r\n--RandomNerdTutorials--\r\n";
 
     uint32_t imageLen = fb->len;
@@ -164,8 +195,7 @@ String sendPhoto() {
     }   
     client.print(tail);
     
-    esp_camera_fb_return(fb);
-    
+    /*
     int timoutTimer = 10000;
     long startTimer = millis();
     boolean state = false;
@@ -186,12 +216,19 @@ String sendPhoto() {
       if (getBody.length()>0) { break; }
     }
     Serial.println();
+    */
+    client.flush();
     client.stop();
-    Serial.println(getBody);
+    //Serial.println(getBody);
+    Serial.println("Completed.");
   }
   else {
-    getBody = "Connection to " + serverName +  " failed.";
+    String getBody = "Connection to " + serverName +  " failed.";
     Serial.println(getBody);
   }
-  return getBody;
+
+  esp_camera_fb_return(fb);
+
+  //return getBody;
+  return true;
 }
