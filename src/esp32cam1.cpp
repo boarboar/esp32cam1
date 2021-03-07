@@ -15,16 +15,14 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "esp_camera.h"
+#include "esp_task_wdt.h"
+#include "connect.inc"
 
-const char* ssid = "NETGEAR";
-const char* password = "boarboar";
-
-String serverName = "192.168.1.138";   // REPLACE WITH YOUR Raspberry Pi IP ADDRESS
-//String serverName = "example.com";   // OR REPLACE WITH YOUR DOMAIN NAME
-
-String serverPath = "/upload";     // The default serverPath should be upload.php
-
-const int serverPort = 51062;
+// const char* ssid = "NETGEAR";
+// const char* password = "boarboar";
+// String serverName = "192.168.1.138";   
+// String serverPath = "/upload";     
+// const int serverPort = 51062;
 
 const int CamID = 1;
 
@@ -51,9 +49,11 @@ WiFiClient client;
 
 #define LED_PIN           33
 #define FLASH_PIN         4
+#define MODE_PIN          16
 
 const int timerInterval = 30000;    // time between each HTTP POST image
 unsigned long previousMillis = 0;   // last time image was sent
+String head;
 
 bool sendPhoto();
 
@@ -61,8 +61,15 @@ void setup() {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
 
   pinMode(LED_PIN, OUTPUT);
-  
+  pinMode(MODE_PIN, INPUT_PULLUP);
+
   Serial.begin(115200);
+
+  if(digitalRead(MODE_PIN) == HIGH) {
+    Serial.print("Prod mode");
+  } else {
+    Serial.print("Debug mode");
+  }
 
   WiFi.mode(WIFI_STA);
   Serial.println();
@@ -135,6 +142,13 @@ void setup() {
     s->set_lenc(s, 0);
   }
 
+  esp_task_wdt_init(timerInterval*3, true);
+  esp_task_wdt_add(NULL); // add current thread to WDT
+  
+  head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"CAM-";
+  head += String(CamID);
+  head += ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
+
   sendPhoto(); 
 }
 
@@ -145,6 +159,7 @@ void loop() {
     sendPhoto();
     digitalWrite(LED_PIN, HIGH);
     previousMillis = currentMillis;
+    esp_task_wdt_reset();
   }
 }
 
@@ -165,9 +180,9 @@ bool sendPhoto() {
 
   if (client.connect(serverName.c_str(), serverPort)) {
     Serial.println("Connection successful!");    
-    String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"CAM-";
-    head += String(CamID);
-    head += ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
+    // String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"CAM-";
+    // head += String(CamID);
+    // head += ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
     String tail = "\r\n--RandomNerdTutorials--\r\n";
 
     uint32_t imageLen = fb->len;
@@ -221,13 +236,12 @@ bool sendPhoto() {
     client.stop();
     //Serial.println(getBody);
     Serial.println("Completed.");
+    esp_camera_fb_return(fb);
   }
   else {
     String getBody = "Connection to " + serverName +  " failed.";
     Serial.println(getBody);
   }
-
-  esp_camera_fb_return(fb);
 
   //return getBody;
   return true;
