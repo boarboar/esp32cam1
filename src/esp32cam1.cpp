@@ -123,8 +123,11 @@ void setup() {
     config.jpeg_quality = 10;  //0-63 lower number means higher quality
     config.fb_count = 2;
   } else {
-    config.frame_size = FRAMESIZE_CIF;
-    config.jpeg_quality = 12;  //0-63 lower number means higher quality
+    Serial.println("NO PSRAM");
+    //config.frame_size = FRAMESIZE_CIF;
+    //config.jpeg_quality = 12;  //0-63 lower number means higher quality
+    config.frame_size = FRAMESIZE_VGA;
+    config.jpeg_quality = 10;  //0-63 lower number means higher quality
     config.fb_count = 1;
   }
   
