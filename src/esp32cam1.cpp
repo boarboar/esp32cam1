@@ -18,11 +18,11 @@
 #include "esp_task_wdt.h"
 #include "connect.inc"
 
-// const char* ssid = "NETGEAR";
-// const char* password = "boarboar";
-// String serverName = "192.168.1.138";   
-// String serverPath = "/upload";     
-// const int serverPort = 51062;
+// const char*  serverPath = "/upload";     
+// const char*  serverName_Local = "192.168.1.138";   
+// const int serverPort_Local = 51062;
+// const char*  serverName_Remote = "193.70.73.242";   
+// const int serverPort_Remote = 51062;
 
 const int CamID = 1;
 
@@ -54,6 +54,8 @@ WiFiClient client;
 const int timerInterval = 30000;    // time between each HTTP POST image
 unsigned long previousMillis = 0;   // last time image was sent
 String head;
+String  serverName = serverName_Local;   
+int serverPort = serverPort_Local;
 
 bool sendPhoto();
 
@@ -66,9 +68,13 @@ void setup() {
   Serial.begin(115200);
 
   if(digitalRead(MODE_PIN) == HIGH) {
-    Serial.print("Prod mode");
+    Serial.print("Remote mode");
+    serverName = serverName_Remote;   
+    serverPort = serverPort_Remote;
   } else {
-    Serial.print("Debug mode");
+    Serial.print("Local mode");
+    serverName = serverName_Local;   
+    serverPort = serverPort_Local;
   }
 
   WiFi.mode(WIFI_STA);
@@ -111,6 +117,7 @@ void setup() {
 
   // init with high specs to pre-allocate larger buffers
   if(psramFound()){
+    Serial.println("PSRAM");
     //config.frame_size = FRAMESIZE_SVGA;
     config.frame_size = FRAMESIZE_VGA;
     config.jpeg_quality = 10;  //0-63 lower number means higher quality
@@ -189,7 +196,7 @@ bool sendPhoto() {
     uint32_t extraLen = head.length() + tail.length();
     uint32_t totalLen = imageLen + extraLen;
   
-    client.println("POST " + serverPath + " HTTP/1.1");
+    client.println("POST " + String(serverPath) + " HTTP/1.1");
     client.println("Host: " + serverName);
     client.println("Content-Length: " + String(totalLen));
     client.println("Content-Type: multipart/form-data; boundary=RandomNerdTutorials");
