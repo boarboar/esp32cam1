@@ -53,9 +53,13 @@ WiFiClient client;
 
 const int timerInterval = 30000;    // time between each HTTP POST image
 unsigned long previousMillis = 0;   // last time image was sent
-String head;
 String  serverName = serverName_Local;   
 int serverPort = serverPort_Local;
+String content_head = "--IMG\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"CAM-";
+String content_head_2 = ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
+String content_tail = "\r\n--IMG--\r\n";
+String content_start = "Content-Type: multipart/form-data; boundary=IMG";
+
 
 bool sendPhoto();
 
@@ -155,9 +159,8 @@ void setup() {
   esp_task_wdt_init(timerInterval*3, true);
   esp_task_wdt_add(NULL); // add current thread to WDT
   
-  head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"CAM-";
-  head += String(CamID);
-  head += ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
+  content_head += String(CamID);
+  content_head += content_head_2;
 
   sendPhoto(); 
 }
@@ -174,8 +177,6 @@ void loop() {
 }
 
 bool sendPhoto() {
-  //String getAll;
-  //String getBody;
 
   camera_fb_t * fb = NULL;
   fb = esp_camera_fb_get();
@@ -190,22 +191,18 @@ bool sendPhoto() {
 
   if (client.connect(serverName.c_str(), serverPort)) {
     Serial.println("Connection successful!");    
-    // String head = "--RandomNerdTutorials\r\nContent-Disposition: form-data; name=\"imageFile\"; filename=\"CAM-";
-    // head += String(CamID);
-    // head += ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n";
-    String tail = "\r\n--RandomNerdTutorials--\r\n";
 
     uint32_t imageLen = fb->len;
-    uint32_t extraLen = head.length() + tail.length();
+    uint32_t extraLen = content_head.length() + content_tail.length();
     uint32_t totalLen = imageLen + extraLen;
   
     client.println("POST " + String(serverPath) + " HTTP/1.1");
     client.println("Host: " + serverName);
     client.println("Content-Length: " + String(totalLen));
-    client.println("Content-Type: multipart/form-data; boundary=RandomNerdTutorials");
+    client.println("Authorization : Bearer whatever");
+    client.println(content_start); // IMG multipart start
     client.println();
-    client.print(head);
-  
+    client.print(content_head);  // IMG multipart head
     uint8_t *fbBuf = fb->buf;
     size_t fbLen = fb->len;
     for (size_t n=0; n<fbLen; n=n+1024) {
@@ -218,41 +215,19 @@ bool sendPhoto() {
         client.write(fbBuf, remainder);
       }
     }   
-    client.print(tail);
-    
-    /*
-    int timoutTimer = 10000;
-    long startTimer = millis();
-    boolean state = false;
-    
-    while ((startTimer + timoutTimer) > millis()) {
-      Serial.print(".");
-      delay(100);      
-      while (client.available()) {
-        char c = client.read();
-        if (c == '\n') {
-          if (getAll.length()==0) { state=true; }
-          getAll = "";
-        }
-        else if (c != '\r') { getAll += String(c); }
-        if (state==true) { getBody += String(c); }
-        startTimer = millis();
-      }
-      if (getBody.length()>0) { break; }
-    }
-    Serial.println();
-    */
+    client.print(content_tail); //IMG multipart tail
     client.flush();
     client.stop();
-    //Serial.println(getBody);
     Serial.println("Completed.");
-    esp_camera_fb_return(fb);
   }
   else {
-    String getBody = "Connection to " + serverName +  " failed.";
-    Serial.println(getBody);
+    Serial.println("Connection to " + serverName +  " failed.");
   }
 
-  //return getBody;
+  esp_camera_fb_return(fb);
+
+  Serial.println("Free head: ");
+  Serial.println(ESP.getFreeHeap());
+
   return true;
 }
