@@ -174,6 +174,10 @@ void loop() {
       esp_task_wdt_reset();
     }
     digitalWrite(LED_PIN, HIGH);
+
+    Serial.println("Free heap: ");
+    Serial.println(ESP.getFreeHeap());
+
     previousMillis = currentMillis;
   }
 }
@@ -227,9 +231,6 @@ bool sendPhoto() {
   }
 
   esp_camera_fb_return(fb);
-
-  Serial.println("Free head: ");
-  Serial.println(ESP.getFreeHeap());
 
   return true;
 }
