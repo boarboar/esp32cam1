@@ -155,24 +155,26 @@ void setup() {
     s->set_awb_gain(s, 0);  
     s->set_lenc(s, 0);
   }
-
-  esp_task_wdt_init(timerInterval*3, true);
-  esp_task_wdt_add(NULL); // add current thread to WDT
   
   content_head += String(CamID);
   content_head += content_head_2;
 
+  esp_task_wdt_init(timerInterval*3, true);
+  esp_task_wdt_add(NULL); // add current thread to WDT
+  
   sendPhoto(); 
+
 }
 
 void loop() {
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= timerInterval) {
     digitalWrite(LED_PIN, LOW);
-    sendPhoto();
+    if(sendPhoto()) {
+      esp_task_wdt_reset();
+    }
     digitalWrite(LED_PIN, HIGH);
     previousMillis = currentMillis;
-    esp_task_wdt_reset();
   }
 }
 
