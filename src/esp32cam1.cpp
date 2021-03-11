@@ -52,6 +52,7 @@ WiFiClient client;
 #define MODE_PIN          16
 
 const int timerInterval = 30000;    // time between each HTTP POST image
+const int wdtInterval = 130; // watchdog in secs
 unsigned long previousMillis = 0;   // last time image was sent
 String  serverName = serverName_Local;   
 int serverPort = serverPort_Local;
@@ -159,8 +160,8 @@ void setup() {
   content_head += String(CamID);
   content_head += content_head_2;
 
-  esp_task_wdt_init(timerInterval*3, true);
-  esp_task_wdt_add(NULL); // add current thread to WDT
+  //esp_task_wdt_init(wdtInterval, true);
+  //esp_task_wdt_add(NULL); // add current thread to WDT
   
   sendPhoto(); 
 
@@ -171,11 +172,11 @@ void loop() {
   if (currentMillis - previousMillis >= timerInterval) {
     digitalWrite(LED_PIN, LOW);
     if(sendPhoto()) {
-      esp_task_wdt_reset();
+      //esp_task_wdt_reset();
     }
     digitalWrite(LED_PIN, HIGH);
 
-    Serial.println("Free heap: ");
+    Serial.print("Free heap: ");
     Serial.println(ESP.getFreeHeap());
 
     previousMillis = currentMillis;
@@ -188,11 +189,13 @@ bool sendPhoto() {
   fb = esp_camera_fb_get();
   if(!fb) {
     Serial.println("Camera capture failed");
-    delay(1000);
-    ESP.restart();
+    //delay(1000);
+    //ESP.restart();
     return false;
   }
   
+  bool res = false;
+
   Serial.println("Connecting to server: " + serverName);
 
   if (client.connect(serverName.c_str(), serverPort)) {
@@ -204,8 +207,8 @@ bool sendPhoto() {
   
     client.println("POST " + String(serverPath) + " HTTP/1.1");
     client.println("Host: " + serverName);
-    client.println("Content-Length: " + String(totalLen));
     client.println("X-API-Key: " + String(serverKey));
+    client.println("Content-Length: " + String(totalLen));
     client.println(content_start); // IMG multipart start
     client.println();
     client.print(content_head);  // IMG multipart head
@@ -225,6 +228,7 @@ bool sendPhoto() {
     client.flush();
     client.stop();
     Serial.println("Completed.");
+    res = true;
   }
   else {
     Serial.println("Connection to " + serverName +  " failed.");
@@ -232,5 +236,5 @@ bool sendPhoto() {
 
   esp_camera_fb_return(fb);
 
-  return true;
+  return res;
 }
