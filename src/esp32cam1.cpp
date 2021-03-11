@@ -208,6 +208,7 @@ bool sendPhoto() {
     client.println("POST " + String(serverPath) + " HTTP/1.1");
     client.println("Host: " + serverName);
     client.println("X-API-Key: " + String(serverKey));
+    
     client.println("Content-Length: " + String(totalLen));
     client.println(content_start); // IMG multipart start
     client.println();
