@@ -117,7 +117,8 @@ void setup() {
   config.pin_sscb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
+  //config.xclk_freq_hz = 20000000; // fastest
+  config.xclk_freq_hz = 10000001; // best quality
   config.pixel_format = PIXFORMAT_JPEG;
 
   // init with high specs to pre-allocate larger buffers
@@ -126,13 +127,13 @@ void setup() {
     //config.frame_size = FRAMESIZE_SVGA;
     config.frame_size = FRAMESIZE_VGA;
     config.jpeg_quality = 10;  //0-63 lower number means higher quality
-    config.fb_count = 2;
+    config.fb_count = 1; // best qual, 2 = fastest
   } else {
     Serial.println("NO PSRAM");
     //config.frame_size = FRAMESIZE_CIF;
     //config.jpeg_quality = 12;  //0-63 lower number means higher quality
     config.frame_size = FRAMESIZE_VGA;
-    config.jpeg_quality = 10;  //0-63 lower number means higher quality
+    config.jpeg_quality = 5;  //0-63 lower number means higher quality
     config.fb_count = 1;
   }
   
@@ -140,6 +141,10 @@ void setup() {
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
     Serial.printf("Camera init failed with error 0x%x", err);
+    periph_module_disable(PERIPH_I2C0_MODULE); // try to shut I2C down properly in case that is the problem
+    periph_module_disable(PERIPH_I2C1_MODULE);
+    periph_module_reset(PERIPH_I2C0_MODULE);
+    periph_module_reset(PERIPH_I2C1_MODULE);
     delay(1000);
     ESP.restart();
   }
@@ -160,8 +165,8 @@ void setup() {
   content_head += String(CamID);
   content_head += content_head_2;
 
-  //esp_task_wdt_init(wdtInterval, true);
-  //esp_task_wdt_add(NULL); // add current thread to WDT
+  esp_task_wdt_init(wdtInterval, true);
+  esp_task_wdt_add(NULL); // add current thread to WDT
   
   sendPhoto(); 
 
@@ -172,7 +177,7 @@ void loop() {
   if (currentMillis - previousMillis >= timerInterval) {
     digitalWrite(LED_PIN, LOW);
     if(sendPhoto()) {
-      //esp_task_wdt_reset();
+      esp_task_wdt_reset();
     }
     digitalWrite(LED_PIN, HIGH);
 
@@ -194,7 +199,7 @@ bool sendPhoto() {
     return false;
   }
   
-  bool res = false;
+  //bool res = false;
 
   Serial.println("Connecting to server: " + serverName);
 
@@ -229,7 +234,7 @@ bool sendPhoto() {
     client.flush();
     client.stop();
     Serial.println("Completed.");
-    res = true;
+    //res = true;
   }
   else {
     Serial.println("Connection to " + serverName +  " failed.");
@@ -237,5 +242,5 @@ bool sendPhoto() {
 
   esp_camera_fb_return(fb);
 
-  return res;
+  return true;
 }
