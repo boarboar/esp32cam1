@@ -23,6 +23,7 @@
 // const int serverPort_Local = 51062;
 // const char*  serverName_Remote = "193.70.73.242";   
 // const int serverPort_Remote = 51062;
+// const char*  serverKey = "97fd1e27-69cb-4a54-ad43-df4c78a851ff";
 
 const int CamID = 1;
 
